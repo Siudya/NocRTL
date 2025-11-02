@@ -1,0 +1,29 @@
+package build
+import mill.*
+import scalalib.*
+
+trait CommonModule extends ScalaModule {
+  def scalaVersion = "2.13.16"
+  def mvnDeps = Seq(
+    mvn"org.chipsalliance::chisel:7.3.0",
+    mvn"org.chipsalliance:::chisel-plugin:7.3.0",
+    mvn"org.chipsalliance:llvm-firtool:1.135.0"
+  )
+}
+
+object `package` extends SbtModule with CommonModule {
+  def moduleDeps = Seq(dep.cde.cde)
+  def mainClass = Some("nocrtl.utils.TopMain")
+  object test extends SbtTests  {
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"org.scalatest::scalatest:3.2.7"
+    )
+    def testFramework = "org.scalatest.tools.Framework"
+  }
+  object dep extends CommonModule {
+    object cde extends CommonModule {
+      object cde extends CommonModule {
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+out
+build
+.xmake
+.idea
+.vscode
+.metals
+.bsp

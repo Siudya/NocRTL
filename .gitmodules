@@ -1,0 +1,3 @@
+[submodule "dep/cde"]
+	path = dep/cde
+	url = https://github.com/chipsalliance/cde
