@@ -1,34 +1,45 @@
 package nocrtl.router.buffer
 import chisel3._
 import chisel3.util._
-import org.chipsalliance.cde.config.Parameters
-import nocrtl.bundle.{FlitBundle, LinkBundle}
-import nocrtl.params.VnParams
+import nocrtl.bundle.VnLinkCredit
+import nocrtl.params.{VcParams, VnParams}
 
-class BufferStateGrantBundle(vnP: VnParams) extends Bundle {
-  val vld   = Input(Bool())
-  val tkn   = Option.when(vnP.vcs.size > 1)(Input((UInt(vnP.vcs.size.W))))
-  val tail  = Option.when(vnP.atomicBuf)(Input(UInt(vnP.vcs.size.W)))
+class BufferStateOutputBundle(val vcP: VcParams) extends Bundle {
+  val avail = Output(Bool())
+  val entry = Output(UInt((log2Ceil(vcP.bufSize)+ 1).W))
 }
 
-class BufferStateRequestBundle(vnP: VnParams)(implicit p:Parameters) extends Bundle {
-  val vld = Input(Bool())
-  val rdy = Output(Bool())
+class BufferStateAllocBundle(vnP: VnParams) extends Bundle {
+  val vcoh = Input(UInt(vnP.vcs.size.W))
   val head = Input(Bool())
   val tail = Input(Bool())
 }
 
-class BufferState(vnP: VnParams)(implicit p:Parameters) extends Module {
+class BufferState(vnP: VnParams) extends Module {
   val io = IO(new Bundle {
-    val grnt = new BufferStateGrantBundle(vnP)
-    val req = Vec(vnP.vcs.size, new BufferStateRequestBundle(vnP))
-    val cnts = Output(MixedVec(vnP.vcs.map(vc => UInt((log2Ceil(vc.bufSize)+ 1).W))))
+    val grant = Input(Valid(new VnLinkCredit(vnP)))
+    val alloc = Input(Valid(new BufferStateAllocBundle(vnP)))
+    val state = MixedVec(vnP.vcs.map(vc => new BufferStateOutputBundle(vc)))
   })
-  private val tokenNumVec = RegInit(MixedVec(vnP.vcs.map(vc => vc.bufSize.U((log2Ceil(vc.bufSize)+ 1).W))))
-
-  io.cnts := tokenNumVec
+  private val tokenVec = RegInit(MixedVec(vnP.vcs.map(vc => vc.bufSize.U((log2Ceil(vc.bufSize)+ 1).W))))
+  private val takenVec = RegInit(VecInit(Seq.fill(vnP.vcs.size)(false.B)))
 
   for(i <- vnP.vcs.indices) {
-
+    val grant = io.grant.valid && io.grant.bits.token(i)
+    val alloc = io.alloc.valid && io.alloc.bits.vcoh(i)
+    when(alloc && io.alloc.bits.head) {
+      takenVec(i) := true.B
+    }.elsewhen(grant && io.alloc.bits.tail) {
+      takenVec(i) := false.B
+    }
+    when(grant || alloc) {
+      tokenVec(i) := (tokenVec(i) +& grant.asUInt) - alloc.asUInt
+    }
+    if(vnP.atomicBuf) {
+      io.state(i).avail := tokenVec(i).orR && !takenVec(i)
+    } else {
+      io.state(i).avail := tokenVec(i).orR
+    }
+    io.state(i).entry := tokenVec(i)
   }
 }

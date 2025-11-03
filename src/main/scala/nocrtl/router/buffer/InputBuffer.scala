@@ -1,26 +1,26 @@
 package nocrtl.router.buffer
 import chisel3._
 import chisel3.util._
-import nocrtl.bundle.{FlitBundle, LinkBundle}
+import nocrtl.bundle.{BodyFlit, VnLinkBundle}
 import nocrtl.params.VnParams
-import org.chipsalliance.cde.config.Parameters
 
-class InputBuffer(vnP: VnParams)(implicit p:Parameters) extends Module {
+class InputBuffer(vnP: VnParams) extends Module {
   val io = IO(new Bundle{
-    val link = Flipped(new LinkBundle(vnP))
-    val outs = Vec(vcs.size, Decoupled(new FlitBundle(vnP)))
+    val link = Flipped(new VnLinkBundle(vnP))
+    val outs = Vec(vnP.vcs.size, Decoupled(UInt(vnP.flitBits.W)))
   })
-  private val vcs = vnP.vcs.map(vc => Module(new Queue(gen = new FlitBundle(vnP), entries = vc.bufSize)))
+  private val vcs = vnP.vcs.map(vc => Module(new Queue(gen = UInt(vnP.flitBits.W), entries = vc.bufSize)))
   private val vcBufDeqVldVec = Wire(Vec(vcs.size, Bool()))
-  private val vcBufDeqTailVec = io.link.tail.map(_ => Wire(Vec(vcs.size, Bool())))
-  io.link.grnt := vcBufDeqVldVec.asUInt.orR
-  io.link.tokn.foreach(_ := vcBufDeqVldVec.asUInt)
-  io.link.tail.foreach(_  := vcBufDeqTailVec.get.asUInt)
+  private val vcBufDeqTailVec = Wire(Vec(vcs.size, Bool()))
+  io.link.crdt.valid := vcBufDeqVldVec.asUInt.orR
+  io.link.crdt.bits.token := vcBufDeqVldVec.asUInt
+  io.link.crdt.bits.tail := vcBufDeqTailVec.asUInt
+  private val bodyFlitView = io.link.flit.bits.asTypeOf(new BodyFlit(vnP))
   for(i <- vcs.indices) {
-    vcs(i).io.enq.valid := io.link.vlid && io.link.flit.vc === i.U
+    vcs(i).io.enq.valid := io.link.flit.valid && bodyFlitView.vcoh(i)
     vcs(i).io.enq.bits := io.link.flit
     vcBufDeqVldVec(i) := vcs(i).io.deq.fire
-    vcBufDeqTailVec.foreach(t => t(i) := vcs(i).io.deq.bits.tail)
+    vcBufDeqTailVec(i) := vcs(i).io.deq.bits.tail
     io.outs(i) <> vcs(i).io.deq
     when(vcs(i).io.enq.valid) {
       assert(vcs(i).io.enq.ready, s"Input buffer overflow of vc $i")

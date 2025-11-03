@@ -26,3 +26,13 @@ task("comp", function()
         options = {}
     }
 end)
+
+task("init", function()
+    on_run(function()
+        os.cd(os.scriptdir())
+        os.exec("git submodule update --init")
+    end)
+    set_menu {
+        options = {} 
+    }
+end)

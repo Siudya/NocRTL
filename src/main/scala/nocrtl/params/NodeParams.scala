@@ -1,6 +1,6 @@
 package nocrtl.params
 
-import chisel3.util.log2Ceil
+import nocrtl.bundle.BodyFlit
 
 import scala.collection.mutable
 
@@ -10,49 +10,64 @@ case class VcParams (
 ) {
 }
 
-case class VnParams(
-  width:Int = 128,
-  vcs:Seq[VcParams] = Seq(),
-  atomicBuf:Boolean = true
-) {
+abstract class VnParams {
   require(vcs.nonEmpty)
   def apply(vc:Int):VcParams = {
     require(vcs.size > vc)
     vcs(vc)
   }
-  lazy val vcIdBits:Int = log2Ceil(vcs.size)
+  lazy val flitBits = new BodyFlit(this).getWidth
+  var link: Option[LinkParams] = None
+  def width:Int
+  def vcs:Seq[VcParams]
+  def atomicBuf:Boolean
+  def typeStr: String
 }
 
 case class LinkParams (
-  width:Int = 128,
   pipe:Int = 0,
-  vns:Map[String, VnParams] = Map(),
+  vns:Seq[VnParams] = Seq(),
 ) {
-  def apply(vnn: String):VnParams = {
-    require(vns.contains(vnn))
-    vns(vnn)
+  lazy val vnsMap = vns.map(vn => (vn.typeStr, vn)).toMap
+  lazy val hasAtomicBuf = vns.map(_.atomicBuf).reduce(_ || _)
+  lazy val maxVc = vns.map(_.vcs.size).max
+  lazy val flitBits = vns.map(vn => vn.flitBits).max
+  vns.foreach(vn => vn.link = Some(this))
+
+  def apply(vns: String):VnParams = {
+    require(vnsMap.contains(vns))
+    vnsMap(vns)
   }
-  lazy val crdtLinkBits = 1 + vns.size
+  val ports = mutable.Seq[PortParams]()
+  def <> (port:PortParams):LinkParams = {
+    require(ports.size < 2)
+    ports.appended(port)
+    this
+  }
 }
 
 case class PortParams (
-  lks:Seq[LinkParams] = Seq(),
+  dirStr:String = ""
 ) {
-  def apply(link:Int):LinkParams = {
-    require(lks.size > link)
-    lks(link)
+  var node: Option[NodeParams] = None
+  val link = mutable.Seq[LinkParams]()
+  def <> (lnk:LinkParams):Unit = {
+    link.appended(lnk)
+    require(lnk.ports.size < 2)
+    lnk.ports.appended(this)
   }
 }
 
 case class NodeParams (
   name:String = "",
-  ports: Map[String, PortParams] = Map(),
-  indices:Seq[Int] = Seq(0)
+  ports: Seq[PortParams] = Seq(),
+  id:Int = 0
 ) {
   require(ports.nonEmpty)
-  require(indices.nonEmpty)
-  def apply(pn: String): PortParams = {
-    require(ports.contains(pn))
-    ports(pn)
+  lazy val portsMap = ports.map(port => (port.dirStr, port)).toMap
+  def apply(ps: String): PortParams = {
+    require(portsMap.contains(ps))
+    portsMap(ps)
   }
+  ports.foreach(_.node = Some(this))
 }

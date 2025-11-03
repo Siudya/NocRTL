@@ -5,3 +5,6 @@ build
 .vscode
 .metals
 .bsp
+.bloop/
+.scala-build/
+metals.sbt

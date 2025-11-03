@@ -5,9 +5,9 @@ import scalalib.*
 trait CommonModule extends ScalaModule {
   def scalaVersion = "2.13.16"
   def mvnDeps = Seq(
-    mvn"org.chipsalliance::chisel:7.3.0",
-    mvn"org.chipsalliance:::chisel-plugin:7.3.0",
-    mvn"org.chipsalliance:llvm-firtool:1.135.0"
+    mvn"org.chipsalliance::chisel:6.7.0",
+    mvn"org.chipsalliance:::chisel-plugin:6.7.0",
+    mvn"org.chipsalliance:llvm-firtool:1.62.1"
   )
 }
 
