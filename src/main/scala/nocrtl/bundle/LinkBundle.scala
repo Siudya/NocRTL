@@ -10,7 +10,7 @@ class VnLinkCredit(vnP: VnParams) extends Bundle {
 }
 
 class VnLinkBundle(val vnP: VnParams) extends Bundle {
-  val flit = Output(Valid(UInt(vnP.flitBits.W)))
+  val flit = Output(Valid(new BodyFlit(vnP)))
   val crdt = Input(Valid(new VnLinkCredit(vnP)))
 }
 

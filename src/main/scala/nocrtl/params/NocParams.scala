@@ -28,7 +28,7 @@ case class NocParameters (
   vnIdMap: Map[String, Int] = Map(),
   portIdMap: Map[String, Int] = Map(),
   rcMod: () => Option[RouteCompute] = () => None,
-  vsMod: Int => Option[VirtualChannelSelect] = (_:Int) => None
+  vsMod: (Int, Int) => Option[VirtualChannelSelect] = (_:Int, _:Int) => None
 ) {
   lazy val nodes: Seq[NodeParams] = NocParameters.getNodes(networkGen)
   lazy val size: Int = nodes.size

@@ -10,7 +10,12 @@ case class VcParams (
 ) {
 }
 
-abstract class VnParams {
+case class VnParams(
+  width:Int = 128,
+  vcs:Seq[VcParams] = Seq(),
+  atomicBuf:Boolean = false,
+  typeStr:String = ""
+) {
   require(vcs.nonEmpty)
   def apply(vc:Int):VcParams = {
     require(vcs.size > vc)
@@ -18,10 +23,6 @@ abstract class VnParams {
   }
   lazy val flitBits = new BodyFlit(this).getWidth
   var link: Option[LinkParams] = None
-  def width:Int
-  def vcs:Seq[VcParams]
-  def atomicBuf:Boolean
-  def typeStr: String
 }
 
 case class LinkParams (
@@ -55,6 +56,8 @@ case class PortParams (
     link.appended(lnk)
     require(lnk.ports.size < 2)
     lnk.ports.appended(this)
+    val allVnTypes = link.flatMap(_.vns.map(_.typeStr))
+    require(allVnTypes.distinct.size == allVnTypes.size)
   }
 }
 

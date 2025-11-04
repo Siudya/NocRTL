@@ -4,22 +4,16 @@ import chisel3.util._
 import nocrtl.bundle.VnLinkCredit
 import nocrtl.params.{VcParams, VnParams}
 
-class BufferStateOutputBundle(val vcP: VcParams) extends Bundle {
+class BufferStateBundle(val vcP: VcParams) extends Bundle {
   val avail = Output(Bool())
-  val entry = Output(UInt((log2Ceil(vcP.bufSize)+ 1).W))
-}
-
-class BufferStateAllocBundle(vnP: VnParams) extends Bundle {
-  val vcoh = Input(UInt(vnP.vcs.size.W))
-  val head = Input(Bool())
-  val tail = Input(Bool())
+  val take = Input(Bool())
 }
 
 class BufferState(vnP: VnParams) extends Module {
   val io = IO(new Bundle {
     val grant = Input(Valid(new VnLinkCredit(vnP)))
-    val alloc = Input(Valid(new BufferStateAllocBundle(vnP)))
-    val state = MixedVec(vnP.vcs.map(vc => new BufferStateOutputBundle(vc)))
+    val alloc = Input(Valid(UInt(vnP.vcs.size.W)))
+    val state = MixedVec(vnP.vcs.map(vc => new BufferStateBundle(vc)))
   })
   private val tokenVec = RegInit(MixedVec(vnP.vcs.map(vc => vc.bufSize.U((log2Ceil(vc.bufSize)+ 1).W))))
   private val takenVec = RegInit(VecInit(Seq.fill(vnP.vcs.size)(false.B)))
@@ -27,9 +21,9 @@ class BufferState(vnP: VnParams) extends Module {
   for(i <- vnP.vcs.indices) {
     val grant = io.grant.valid && io.grant.bits.token(i)
     val alloc = io.alloc.valid && io.alloc.bits.vcoh(i)
-    when(alloc && io.alloc.bits.head) {
+    when(io.state(i).take) {
       takenVec(i) := true.B
-    }.elsewhen(grant && io.alloc.bits.tail) {
+    }.elsewhen(grant && io.grant.bits.tail(i)) {
       takenVec(i) := false.B
     }
     when(grant || alloc) {
@@ -40,6 +34,5 @@ class BufferState(vnP: VnParams) extends Module {
     } else {
       io.state(i).avail := tokenVec(i).orR
     }
-    io.state(i).entry := tokenVec(i)
   }
 }

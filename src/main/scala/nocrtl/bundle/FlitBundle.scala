@@ -14,7 +14,7 @@ class HeadFlit(val vnP: VnParams)(implicit p:Parameters) extends Bundle with Fli
   private val nocP = p(NocParamsKey)
   val sorc = UInt(nocP.idBits.W)
   val dest = UInt(nocP.idBits.W)
-  val ptoh = UInt(nocP.portIdBits.W)
+  val port = UInt(nocP.portIdBits.W)
   val vcoh = UInt(vnP.vcs.size.W)
   val tail = Bool()
   val head = Bool()
