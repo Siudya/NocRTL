@@ -35,4 +35,5 @@ case class NocParameters (
   lazy val idBits: Int = log2Ceil(size)
   lazy val portIdBits:Int = log2Ceil(nodes.flatMap(_.ports.map(_.dirStr)).map(portIdMap).max)
   lazy val maxVc:Int = NocParameters.maxVcMap(networkGen)
+  lazy val routerSpaceBits: Int = 16
 }

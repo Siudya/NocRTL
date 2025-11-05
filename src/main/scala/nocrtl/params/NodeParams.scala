@@ -45,6 +45,7 @@ case class LinkParams (
     ports.appended(port)
     this
   }
+  lazy val vnStr = vns.map(_.typeStr).mkString("_")
 }
 
 case class PortParams (

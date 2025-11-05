@@ -2,34 +2,31 @@ package nocrtl.router.compute
 
 import chisel3._
 import chisel3.util._
+import nocrtl.bundle.AxiLiteBundle
 import nocrtl.params.{NocParamsKey, NodeParams, VnParams}
 import nocrtl.router.port.LinkBufferToComputeBundle
 import nocrtl.utils.NtoMAllocator
 import org.chipsalliance.cde.config.Parameters
 
 class NetworkCompute(nodeP:NodeParams, vnStr:String)(implicit p:Parameters) extends Module {
-  override val desiredName = s"NetworkCompute${vnStr.capitalize}"
+  override val desiredName = s"NetworkComputeR${nodeP.id}${vnStr.toUpperCase}"
   private val portToVnMap = nodeP.ports.flatMap(port => {
     val vns = port.link.flatMap(_.vns).filter(_.typeStr == vnStr)
     Option.when(vns.nonEmpty)((port.dirStr, vns.head))
   })
 
+  val s_axi = IO(Flipped(new AxiLiteBundle))
+
+  val routerCfgMap = portToVnMap.map(elm => (elm._1, IO(Input(UInt(p(NocParamsKey).idBits.W))))).toMap
+  routerCfgMap.foreach({case(a, b) => b.suggestName(s"port_${a}_router")})
+
   val portToCompPort = portToVnMap.map(elm => (elm._1, IO(Flipped(new LinkBufferToComputeBundle(elm._2))))).toMap
   portToCompPort.foreach({case(a, b) => b.suggestName(s"comp_$a")})
 
   private val portIdMap = p(NocParamsKey).portIdMap
-  private val portToNextRouterMap = (for(port <- nodeP.ports) yield {
-    val nextRouter = port.link.head.ports.filter(_.node.get != port.node.get).head.node.get.id.U
-    val portId = p(NocParamsKey).portIdMap(port.dirStr)
-    (portId, nextRouter)
-  }).toMap
-
-  private val routerIdVec = Seq.tabulate(portToNextRouterMap.keys.max)(i => {
-    if(portToNextRouterMap.contains(i)) portToNextRouterMap(i)
-    else 0.U
-  })
 
   private val vs = Module(p(NocParamsKey).vsMod(portToCompPort.size, nodeP.id).get)
+  vs.io.s_axi_cfg <> s_axi
 
   private val portToCompPortSeq = portToCompPort.toSeq
   private val portToVsQuery = (for(i <- portToCompPortSeq.indices) yield {
@@ -47,7 +44,7 @@ class NetworkCompute(nodeP:NodeParams, vnStr:String)(implicit p:Parameters) exte
     va.io.rsrc := vsq.selectedVc
     for(i <- reqs.indices) {
       val rc = Module(p(NocParamsKey).rcMod().get)
-      rc.io.router := Mux1H(reqs(i).curOPort, routerIdVec)
+      rc.io.router := routerCfgMap(name)
       rc.io.dest := reqs(i).dest
       reqs(i).nextOPort := rc.io.portOH
       reqs(i).ack := va.io.grnt(i)

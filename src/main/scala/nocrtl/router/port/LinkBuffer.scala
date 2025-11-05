@@ -3,7 +3,7 @@ package nocrtl.router.port
 import chisel3._
 import chisel3.util._
 import nocrtl.bundle.{BodyFlit, LinkBundle, LinkPayload}
-import nocrtl.params.{LinkParams, NocParamsKey, VnParams}
+import nocrtl.params.{LinkParams, VnParams}
 import nocrtl.router.buffer.{BufferComputeReqBundle, BufferOutputBundle, BufferState, BufferStateBundle, InputBuffer}
 import nocrtl.utils.RRArbiterWithReset
 import org.chipsalliance.cde.config.Parameters
@@ -21,14 +21,14 @@ class LinkBufferToComputeBundle(vnP:VnParams)(implicit p:Parameters) extends Bun
 class LinkBuffer(lnkP:LinkParams)(implicit p:Parameters) extends Module {
   val link = IO(new LinkBufferExternalPortBundle(lnkP))
 
-  val vnCompPortMap = lnkP.vns.map(vn => (vn.typeStr, IO(new LinkBufferToComputeBundle(vn)))).toMap
-  vnCompPortMap.foreach({case(a, b) => b.suggestName(s"vn_${a.toLowerCase}_comp")})
+  val vnToCompMap = lnkP.vns.map(vn => (vn.typeStr, IO(new LinkBufferToComputeBundle(vn)))).toMap
+  vnToCompMap.foreach({case(a, b) => b.suggestName(s"vn_${a.toLowerCase}_comp")})
 
-  val vnInwardPortMap = lnkP.vns.map(vn => (vn.typeStr, IO(Vec(vn.vcs.size, Decoupled(new BufferOutputBundle(vn)))))).toMap
-  vnInwardPortMap.foreach({case(a, b) => b.suggestName(s"vn_${a.toLowerCase}_inward")})
+  val vnToInwardMap = lnkP.vns.map(vn => (vn.typeStr, IO(Vec(vn.vcs.size, Decoupled(new BufferOutputBundle(vn)))))).toMap
+  vnToInwardMap.foreach({case(a, b) => b.suggestName(s"vn_${a.toLowerCase}_inward")})
 
-  val vnOutwardPortMap = lnkP.vns.map(vn => (vn.typeStr, IO(Vec(vn.vcs.size, Flipped(Decoupled(new BodyFlit(vn))))))).toMap
-  vnOutwardPortMap.foreach({case(a, b) => b.suggestName(s"vn_${a.toLowerCase}_outward")})
+  val vnToOutwardMap = lnkP.vns.map(vn => (vn.typeStr, IO(Vec(vn.vcs.size, Flipped(Decoupled(new BodyFlit(vn))))))).toMap
+  vnToOutwardMap.foreach({case(a, b) => b.suggestName(s"vn_${a.toLowerCase}_outward")})
 
   private val vnbufs = lnkP.vns.map(vn => (vn.typeStr, Module(new InputBuffer(vn))))
   vnbufs.foreach({case(a, b) => b.suggestName(s"ibuf_vn_${a.toLowerCase}")})
@@ -43,8 +43,8 @@ class LinkBuffer(lnkP:LinkParams)(implicit p:Parameters) extends Module {
     grantVec(vnid) := buf.io.link.crdt.valid
     link.inward.crdt.bits.token(vnid) := buf.io.link.crdt.bits.token
     link.inward.crdt.bits.tail(vnid) := buf.io.link.crdt.bits.tail
-    vnInwardPortMap(key) <> buf.io.outs
-    vnCompPortMap(key).va <> buf.io.comp
+    vnToInwardMap(key) <> buf.io.outs
+    vnToCompMap(key).va <> buf.io.comp
   }
 
   private val vnBufStats = lnkP.vns.map(vn => (vn.typeStr, Module(new BufferState(vn))))
@@ -59,11 +59,11 @@ class LinkBuffer(lnkP:LinkParams)(implicit p:Parameters) extends Module {
     bufStat.io.grant.valid := link.outward.crdt.valid
     bufStat.io.grant.bits.token := link.outward.crdt.bits.token(vnid)
     bufStat.io.grant.bits.tail := link.outward.crdt.bits.tail(vnid)
-    vnCompPortMap(key).bs <> bufStat.io.state
+    vnToCompMap(key).bs <> bufStat.io.state
 
     bufStat.io.alloc.valid := outBuf.io.enq.fire
     bufStat.io.alloc.bits := outBuf.io.enq.bits.vcoh
-    outBuf.io.enq <> vnOutwardPortMap(key)
+    outBuf.io.enq <> vnToOutwardMap(key)
   }
 
   private val outArb = Module(new RRArbiterWithReset(new LinkPayload(lnkP), lnkP.vns.size))
