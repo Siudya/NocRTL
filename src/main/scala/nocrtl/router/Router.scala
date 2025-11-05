@@ -1,15 +1,18 @@
 package nocrtl.router
 
 import chisel3._
-import chisel3.util._
+import nocrtl.bundle.{AxiLiteBundle, AxiLiteXbar}
 import nocrtl.params.{NocParamsKey, NodeParams}
 import nocrtl.router.port.{LinkBufferExternalPortBundle, Port}
 import org.chipsalliance.cde.config.Parameters
 
 class Router(nodeP:NodeParams)(implicit p:Parameters) extends Module {
+  override val desiredName = s"Router${nodeP.id}"
 
   private val vnSeq = nodeP.ports.flatMap(_.link).flatMap(_.vns)
   private val portSeq = nodeP.ports
+
+  val s_axi = IO(Flipped(new AxiLiteBundle))
 
   val links = portSeq.map(pt => (pt.dirStr, pt.link.map(ln => (ln.vnStr, IO(new LinkBufferExternalPortBundle(ln)))).toMap)).toMap
   for((pn, lks) <- links) {
@@ -26,6 +29,17 @@ class Router(nodeP:NodeParams)(implicit p:Parameters) extends Module {
 
   private val portMap = portSeq.map(pt => (pt.dirStr, Module(new Port(pt)))).toMap
   portMap.foreach({case(a, b) => b.suggestName(s"io_buf_${a.toLowerCase}")})
+
+  private val vnIdMap = p(NocParamsKey).vnIdMap
+  private val vnSpaceBits = p(NocParamsKey).vnSpaceBits
+  private val vnIdBits = p(NocParamsKey).vnIdBits
+  private val cfgAddrSeq = vnSeq.map(vn => (vn.typeStr, (vnIdMap(vn.typeStr).toLong << vnSpaceBits, ((1 << vnIdBits) - 1).toLong << vnSpaceBits)))
+  private val axiXbar = Module(new AxiLiteXbar(1, cfgAddrSeq.map(_._2)))
+
+  axiXbar.s_axi.head <> s_axi
+  for((vn, i) <- vnSeq.zipWithIndex) {
+    vnToFabricMap(vn.typeStr).s_axi <> axiXbar.m_axi(i)
+  }
 
   for(port <- portSeq) {
     for(vn <- vnSeq) {

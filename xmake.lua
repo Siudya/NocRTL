@@ -1,4 +1,25 @@
 
+task("rtl", function()
+    set_menu {
+        usage = "xmake rtl [options]",
+        description = "Generate noc rtl",
+        options = {
+            {'c', "--config", kv, "mesh", "Which config will be used."}
+        }
+    }
+
+    on_run(function()
+        import("core.base.option")
+        local run_opts = {"run", "-td", "build", "--throw-on-first-error", "--target", "systemverilog", "--full-stacktrace"}
+        table.join2(run_opts, {"--config", option.get("config") })
+        if os.host() == "windows" then
+            os.execv(os.shell(), table.join({ "mill" }, run_opts))
+        else
+            os.execv("mill", run_opts)
+        end
+    end)
+end)
+
 task("idea", function()
     on_run(function()
         if os.host() == "windows" then

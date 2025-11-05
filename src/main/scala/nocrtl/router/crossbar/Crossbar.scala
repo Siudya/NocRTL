@@ -1,7 +1,6 @@
 package nocrtl.router.crossbar
 
 import chisel3._
-import chisel3.experimental.noPrefix
 import chisel3.util._
 import nocrtl.bundle.BodyFlit
 import nocrtl.params.{NocParamsKey, NodeParams}

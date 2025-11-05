@@ -6,14 +6,17 @@ trait CommonModule extends ScalaModule {
   def scalaVersion = "2.13.16"
   def mvnDeps = Seq(
     mvn"org.chipsalliance::chisel:6.7.0",
-    mvn"org.chipsalliance:::chisel-plugin:6.7.0",
-    mvn"org.chipsalliance:llvm-firtool:1.62.1"
+    mvn"org.chipsalliance:llvm-firtool:1.62.1",
+    mvn"com.lihaoyi::sourcecode::0.4.0",
+    mvn"org.scala-lang:scala-reflect:2.13.16"
   )
+  def scalacPluginMvnDeps = Seq(mvn"org.chipsalliance:::chisel-plugin:6.7.0")
+  def scalacOptions = Seq("-Ymacro-annotations", "-Ytasty-reader", "-language:reflectiveCalls")
 }
 
 object `package` extends SbtModule with CommonModule {
   def moduleDeps = Seq(dep.cde.cde)
-  def mainClass = Some("nocrtl.utils.TopMain")
+  def mainClass = Some("nocrtl.generator.InterconnectGenerator")
   object test extends SbtTests  {
     override def mvnDeps = super.mvnDeps() ++ Seq(
       mvn"org.scalatest::scalatest:3.2.7"

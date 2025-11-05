@@ -8,7 +8,7 @@ import org.chipsalliance.cde.config.Parameters
 
 class VirtualChannelSelectInterface(implicit p:Parameters) extends Bundle {
   val outPort = Input(UInt(p(NocParamsKey).portIdBits.W))
-  val candidateVc = Output(UInt(p(NocParamsKey).maxVc.W))
+  val candidateVc = Input(UInt(p(NocParamsKey).maxVc.W))
   val selectedVc = Output(UInt(p(NocParamsKey).maxVc.W))
 }
 

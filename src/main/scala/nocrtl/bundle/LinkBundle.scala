@@ -1,7 +1,7 @@
 package nocrtl.bundle
 import chisel3._
 import chisel3.util.{MixedVec, Valid}
-import nocrtl.params.{LinkParams, VcParams, VnParams}
+import nocrtl.params.{LinkParams, NocParamsKey, VnParams}
 import org.chipsalliance.cde.config.Parameters
 
 class VnLinkCredit(vnP: VnParams) extends Bundle {
@@ -19,12 +19,12 @@ class LinkCredit(lnkP:LinkParams) extends Bundle {
   val tail = Input(MixedVec(lnkP.vns.map(vn => UInt(vn.vcs.size.W))))
 }
 
-class LinkPayload(lnkP:LinkParams) extends Bundle {
+class LinkPayload(lnkP:LinkParams)(implicit p:Parameters) extends Bundle {
   val data = UInt(lnkP.flitBits.W)
-  val vnoh = UInt(lnkP.vns.size.W)
+  val vnid = UInt(p(NocParamsKey).vnIdBits.W)
 }
 
-class LinkBundle(val lnkP:LinkParams) extends Bundle {
+class LinkBundle(val lnkP:LinkParams)(implicit p:Parameters) extends Bundle {
   val flit = Output(Valid(new LinkPayload(lnkP)))
   val crdt = Input(Valid(new LinkCredit(lnkP)))
 }

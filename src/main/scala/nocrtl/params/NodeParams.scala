@@ -1,11 +1,11 @@
 package nocrtl.params
 
-import nocrtl.bundle.BodyFlit
+import nocrtl.bundle.{BodyFlit, HeadFlit}
+import org.chipsalliance.cde.config.Parameters
 
 import scala.collection.mutable
 
 case class VcParams (
-  id:Int = 0,
   bufSize:Int = 2
 ) {
 }
@@ -14,7 +14,8 @@ case class VnParams(
   width:Int = 128,
   vcs:Seq[VcParams] = Seq(),
   atomicBuf:Boolean = false,
-  typeStr:String = ""
+  typeStr:String = "",
+  packetSize:Int = 1
 ) {
   require(vcs.nonEmpty)
   def apply(vc:Int):VcParams = {
@@ -22,12 +23,16 @@ case class VnParams(
     vcs(vc)
   }
   lazy val flitBits = new BodyFlit(this).getWidth
+  lazy val bodyDataBits = new BodyFlit(this).data.getWidth
+  def headDataBits(implicit p:Parameters):Int = new HeadFlit(this).data.getWidth
+  def packetDataBits(implicit p:Parameters):Int = headDataBits + bodyDataBits * (packetSize - 1)
   var link: Option[LinkParams] = None
+
 }
 
 case class LinkParams (
   pipe:Int = 0,
-  vns:Seq[VnParams] = Seq(),
+  vns:Seq[VnParams] = Seq()
 ) {
   lazy val vnsMap = vns.map(vn => (vn.typeStr, vn)).toMap
   lazy val hasAtomicBuf = vns.map(_.atomicBuf).reduce(_ || _)
@@ -60,10 +65,12 @@ case class PortParams (
     val allVnTypes = link.flatMap(_.vns.map(_.typeStr))
     require(allVnTypes.distinct.size == allVnTypes.size)
   }
+
+  def peerPort: PortParams = link.head.ports.filter(_ != this).head
+  def peerNode: NodeParams = link.head.ports.filter(_ != this).head.node.get
 }
 
 case class NodeParams (
-  name:String = "",
   ports: Seq[PortParams] = Seq(),
   id:Int = 0
 ) {

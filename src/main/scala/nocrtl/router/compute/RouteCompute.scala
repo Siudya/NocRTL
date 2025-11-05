@@ -8,6 +8,6 @@ abstract class RouteCompute(implicit p:Parameters) extends Module {
   val io = IO(new Bundle {
     val router = Input(UInt(p(NocParamsKey).idBits.W))
     val dest = Input(UInt(p(NocParamsKey).idBits.W))
-    val portOH = Output(UInt(p(NocParamsKey).portIdBits.W))
+    val port = Output(UInt(p(NocParamsKey).portIdBits.W))
   })
 }

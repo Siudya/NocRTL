@@ -3,15 +3,29 @@ package nocrtl.router.port
 import chisel3._
 import chisel3.util._
 import nocrtl.bundle.BodyFlit
-import nocrtl.params.{NocParamsKey, PortParams}
+import nocrtl.params.PortParams
 import nocrtl.router.buffer.BufferOutputBundle
 import org.chipsalliance.cde.config.Parameters
 
-class Port(portP: PortParams)(implicit p:Parameters) extends Module {
+class BaseRouterPort(portP: PortParams)(implicit p:Parameters) extends Module {
   val links = portP.link.map(ln => (ln.vnStr, IO(new LinkBufferExternalPortBundle(ln)))).toMap
   links.foreach(lnk => lnk._2.suggestName(s"link_${lnk._2.inward.lnkP.vnStr.toLowerCase}"))
 
-  private val allVns = portP.link.flatMap(_.vns)
+  val allVns = portP.link.flatMap(_.vns)
+  private val allVnStr = allVns.map(_.typeStr)
+  require(allVnStr.toSet.size == allVnStr.size)
+
+
+  def <>(that:BaseRouterPort):Unit = {
+    for(key <- that.links.keys) {
+      this.links(key).inward <> that.links(key).outward
+      this.links(key).outward <> that.links(key).inward
+    }
+  }
+}
+
+class Port(portP: PortParams)(implicit p:Parameters) extends BaseRouterPort(portP) {
+
   val vnToCompMap = allVns.map(vn => (vn.typeStr, IO(new LinkBufferToComputeBundle(vn)))).toMap
   vnToCompMap.foreach({case(a, b) => b.suggestName(s"vn_${a.toLowerCase}_comp")})
 
@@ -34,12 +48,5 @@ class Port(portP: PortParams)(implicit p:Parameters) extends Module {
     vnToCompMap(key) <> internalVnCompPorts(key)
     vnToInwardMap(key) <> internalVnInwardPorts(key)
     vnToOutwardMap(key) <> internalVnOutwardPorts(key)
-  }
-
-  def <>(that:Port):Unit = {
-    for(key <- that.links.keys) {
-      this.links(key).inward <> that.links(key).outward
-      this.links(key).outward <> that.links(key).inward
-    }
   }
 }

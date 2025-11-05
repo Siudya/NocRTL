@@ -34,6 +34,8 @@ class VNFabric(nodeP:NodeParams, vnStr:String)(implicit p:Parameters) extends Mo
   private val comp = Module(new NetworkCompute(nodeP, vnStr))
   private val xbar = Module(new Crossbar(nodeP, vnStr))
 
+  comp.s_axi <> s_axi
+
   private val xbarInwardPortMap = xbar.portToInwardMap.toMap
   private val xbarOutwardPortMap = xbar.portToOutwardMap.toMap
   for((pname, _) <- portToVnMap) {

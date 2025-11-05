@@ -20,7 +20,7 @@ class BufferState(vnP: VnParams) extends Module {
 
   for(i <- vnP.vcs.indices) {
     val grant = io.grant.valid && io.grant.bits.token(i)
-    val alloc = io.alloc.valid && io.alloc.bits.vcoh(i)
+    val alloc = io.alloc.valid && io.alloc.bits(i)
     when(io.state(i).take) {
       takenVec(i) := true.B
     }.elsewhen(grant && io.grant.bits.tail(i)) {

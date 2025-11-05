@@ -2,7 +2,7 @@ package nocrtl.params
 
 import chisel3.util.log2Ceil
 import nocrtl.router.compute.{RouteCompute, VirtualChannelSelect}
-import org.chipsalliance.cde.config.Field
+import org.chipsalliance.cde.config.{Field, Parameters}
 
 import scala.collection.mutable
 
@@ -25,15 +25,19 @@ object NocParameters {
 
 case class NocParameters (
   networkGen: () => Seq[NodeParams] = () => Seq(),
-  vnIdMap: Map[String, Int] = Map(),
-  portIdMap: Map[String, Int] = Map(),
-  rcMod: () => Option[RouteCompute] = () => None,
-  vsMod: (Int, Int) => Option[VirtualChannelSelect] = (_:Int, _:Int) => None
+  vnSeq:Seq[String] = Seq(),
+  portSeq:Seq[String] = Seq(),
+  rcMod: Option[Parameters => RouteCompute] = None,
+  vsMod: Option[(Int, Int, Parameters) => VirtualChannelSelect] = None
 ) {
   lazy val nodes: Seq[NodeParams] = NocParameters.getNodes(networkGen)
   lazy val size: Int = nodes.size
   lazy val idBits: Int = log2Ceil(size)
   lazy val portIdBits:Int = log2Ceil(nodes.flatMap(_.ports.map(_.dirStr)).map(portIdMap).max)
+  lazy val vnIdBits:Int = log2Ceil(nodes.flatMap(_.ports).flatMap(_.link).flatMap(_.vns.map(_.typeStr)).map(vnIdMap).max)
   lazy val maxVc:Int = NocParameters.maxVcMap(networkGen)
   lazy val routerSpaceBits: Int = 16
+  lazy val vnSpaceBits:Int = routerSpaceBits - vnIdBits
+  lazy val vnIdMap = vnSeq.zipWithIndex.toMap
+  lazy val portIdMap = portSeq.zipWithIndex.toMap
 }

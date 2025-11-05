@@ -3,8 +3,8 @@ package nocrtl.router.port
 import chisel3._
 import chisel3.util._
 import nocrtl.bundle.{BodyFlit, LinkBundle, LinkPayload}
-import nocrtl.params.{LinkParams, VnParams}
-import nocrtl.router.buffer.{BufferComputeReqBundle, BufferOutputBundle, BufferState, BufferStateBundle, InputBuffer}
+import nocrtl.params.{LinkParams, NocParamsKey, VnParams}
+import nocrtl.router.buffer._
 import nocrtl.utils.RRArbiterWithReset
 import org.chipsalliance.cde.config.Parameters
 
@@ -33,12 +33,14 @@ class LinkBuffer(lnkP:LinkParams)(implicit p:Parameters) extends Module {
   private val vnbufs = lnkP.vns.map(vn => (vn.typeStr, Module(new InputBuffer(vn))))
   vnbufs.foreach({case(a, b) => b.suggestName(s"ibuf_vn_${a.toLowerCase}")})
 
+  private val vnIdMap = p(NocParamsKey).vnIdMap
+
   private val grantVec = Wire(Vec(lnkP.vns.size, Bool()))
   link.inward.crdt.valid := grantVec.asUInt.orR
   for(vnid <- lnkP.vns.indices) {
     val buf = vnbufs(vnid)._2
     val key = lnkP.vns(vnid).typeStr
-    buf.io.link.flit.valid := link.inward.flit.valid && link.inward.flit.bits.vnoh(vnid)
+    buf.io.link.flit.valid := link.inward.flit.valid && link.inward.flit.bits.vnid === vnIdMap(key).U
     buf.io.link.flit.bits := link.inward.flit.bits.data
     grantVec(vnid) := buf.io.link.crdt.valid
     link.inward.crdt.bits.token(vnid) := buf.io.link.crdt.bits.token
@@ -74,7 +76,7 @@ class LinkBuffer(lnkP:LinkParams)(implicit p:Parameters) extends Module {
     val buf = vnOutBufs(vnid)._2
     outArb.io.in(vnid).valid := buf.io.deq.valid
     outArb.io.in(vnid).bits.data := buf.io.deq.bits
-    outArb.io.in(vnid).bits.vnoh := (1 << vnid).U
+    outArb.io.in(vnid).bits.vnid := vnIdMap(lnkP.vns(vnid).typeStr).U
     buf.io.deq.ready := outArb.io.in(vnid).ready
   }
 }
