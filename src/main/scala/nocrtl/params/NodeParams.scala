@@ -5,6 +5,21 @@ import org.chipsalliance.cde.config.Parameters
 
 import scala.collection.mutable
 
+object NetworkParamGlobalHelper {
+  private val nodes = mutable.HashMap[Int, NodeParams]()
+  private val links = mutable.HashMap[Int, LinkParams]()
+  private val ports = mutable.HashMap[Int, PortParams]()
+
+  def getNode(id: Int): NodeParams = nodes(id)
+
+  def register(n:NodeParams):Unit = {
+    require(!nodes.contains(n.id))
+    nodes.addOne((n.id, n))
+  }
+
+  def register(l:LinkParams)
+}
+
 case class VcParams (
   bufSize:Int = 2
 ) {
@@ -35,7 +50,6 @@ case class LinkParams (
   vns:Seq[VnParams] = Seq()
 ) {
   lazy val vnsMap = vns.map(vn => (vn.typeStr, vn)).toMap
-  lazy val hasAtomicBuf = vns.map(_.atomicBuf).reduce(_ || _)
   lazy val maxVc = vns.map(_.vcs.size).max
   lazy val flitBits = vns.map(vn => vn.flitBits).max
   vns.foreach(vn => vn.link = Some(this))
@@ -53,10 +67,11 @@ case class LinkParams (
   lazy val vnStr = vns.map(_.typeStr).mkString("_")
 }
 
-case class PortParams (
-  dirStr:String = ""
+class PortParams (
+  val dirStr:String,
+  val nodeId:Int
 ) {
-  var node: Option[NodeParams] = None
+  lazy val node = NetworkParamGlobalHelper.getNode(nodeId)
   val link = mutable.Seq[LinkParams]()
   def <> (lnk:LinkParams):Unit = {
     link.appended(lnk)
@@ -67,18 +82,28 @@ case class PortParams (
   }
 
   def peerPort: PortParams = link.head.ports.filter(_ != this).head
-  def peerNode: NodeParams = link.head.ports.filter(_ != this).head.node.get
+  def peerNode: NodeParams = link.head.ports.filter(_ != this).head.node
 }
 
-case class NodeParams (
-  ports: Seq[PortParams] = Seq(),
-  id:Int = 0
+class NodeParams (
+  portDirs: Seq[String],
+  val id:Int
 ) {
-  require(ports.nonEmpty)
+  require(portDirs.nonEmpty)
+
+  val ports = portDirs.map(s => new PortParams(s, id))
   lazy val portsMap = ports.map(port => (port.dirStr, port)).toMap
+
   def apply(ps: String): PortParams = {
     require(portsMap.contains(ps))
     portsMap(ps)
   }
-  ports.foreach(_.node = Some(this))
+}
+
+object NodeParams {
+  def apply(ports: Seq[String] = Seq(), id:Int = 0): NodeParams = {
+    val n = new NodeParams(ports, id)
+    NetworkParamGlobalHelper.register(n)
+    n
+  }
 }

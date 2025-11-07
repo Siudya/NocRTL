@@ -13,14 +13,19 @@ object NocParameters {
   val maxVcMap = mutable.HashMap[() => Seq[NodeParams], Int]()
 
   def getNodes(gen: () => Seq[NodeParams]):Seq[NodeParams] = {
-    if(networkMap.contains(gen)) {
-      networkMap.addOne((gen, gen()))
-      val nodes = networkMap(gen)
+    if(!networkMap.contains(gen)) {
+      val nodes = gen()
+      networkMap.addOne((gen, nodes))
+      println(nodes.flatMap(_.ports).flatMap(_.link).size)
       val maxVc = nodes.flatMap(_.ports).flatMap(_.link).flatMap(_.vns).map(_.vcs.size).max
       maxVcMap.addOne((gen, maxVc))
     }
     networkMap(gen)
   }
+
+  private val nodes = mutable.HashMap[Int, NodeParams]()
+  private val links = mutable.HashMap[Int, LinkParams]()
+  private val ports = mutable.HashMap[Int, PortParams]()
 }
 
 case class NocParameters (

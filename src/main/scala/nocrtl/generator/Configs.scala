@@ -24,6 +24,8 @@ object ArgParser {
           parse(config.alter((site, here, up) => {
             case NocParamsKey => if(confString == "mesh") {
               Mesh.nocP
+            } else {
+              require(false)
             }
           }), tail)
 
@@ -33,6 +35,7 @@ object ArgParser {
       }
     }
 
+    firrtlOpts.foreach(f => println(f))
     val finalCfg = parse(new BaseConfig, args.toList)
     (finalCfg, firrtlOpts)
   }

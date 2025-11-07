@@ -23,10 +23,11 @@ object Mesh {
       val y_pos = Option.when(y != k - 1)(PortParams("y_pos"))
       val y_neg = Option.when(y != 0)(PortParams("y_neg"))
       val local = PortParams("local")
-      NodeParams(
+      val node = NodeParams(
         ports = (x_pos ++ x_neg ++ y_pos ++ y_neg).toSeq ++ Seq(local),
         id = i
       )
+      node
     })
     val linksNum = k * (k - 1)
     val xLinks = Seq.tabulate(linksNum)(i => {
